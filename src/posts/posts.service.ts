@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { assertObjectId } from 'src/utilities/mongoose';
@@ -17,7 +17,7 @@ export class PostsService {
   }
 
   findAll(): Promise<Post[]> {
-    return this.postModel.find().exec();
+    return this.postModel.find({ deletedAt:null }).exec();
   }
 
   async findOne(id: string): Promise<Post> {
@@ -25,11 +25,49 @@ export class PostsService {
     return this.postModel.findById({ _id: id }).exec();
   }
 
-  update(id: number, updatePostDto: UpdatePostDto) {
-    return `This action updates a #${id} post`;
+  async update(id: string, updatePostDto: UpdatePostDto) {
+    assertObjectId(id);
+
+    const post = await this.postModel.findByIdAndUpdate(
+      id, 
+      {...updatePostDto, 
+        updatedAt: Date.now(),
+      },
+      { new: true },
+      );
+    if (!post) {
+      throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+    }
+
+    return post;
+    // const post = await this.postModel.findById(id);
+
+    // if (!post) {
+    //   throw new HttpException(`Post #${id} not found`, HttpStatus.NOT_FOUND);
+    // }
+
+    // await post.update({ _id: id}, {
+    //   $set: {
+    //     ...updatePostDto,
+    //     updatedAt: Date.now(),
+    //   }
+    // })
+    // return post.save;
   }
 
-  remove(id: number) {
+  async remove(id: string) {
+
+    const post = await this.postModel.findByIdAndUpdate(
+      id,
+      {
+        deletedAt: Date.now(),
+      },
+      { new: true },
+    );
+
+    if (!post) {
+      throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+    }
     return `This action removes a #${id} post`;
   }
 }
